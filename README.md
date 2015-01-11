@@ -1,4 +1,4 @@
-Api wrapper for VKontakte and login/pass authorization (hack).
+Api wrapper for VKontakte and login/pass authorization (hack) on Go (golang).
 ==========
 ###Plus: masking client_id to the iPhone, Android, iPad, Windows Phone clients.
 
