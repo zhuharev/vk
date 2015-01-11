@@ -1,4 +1,5 @@
-vk_wrapper
+Api wrapper for VKontakte and login/pass authorization (hack).
+Plus: masking client_id to the iPhone, Android, iPad, Windows Phone clients.
 ==========
 
 go (golang) api client for vk.com
