@@ -79,3 +79,6 @@ All api methods on https://vk.com/dev/methods
 	// client_id = "3087106"  # Vk application ID (iPhone)
 	// client_id = "3682744"  # Vk application ID (iPad)
 ```
+
+### License
+Vk_api by Yanple is [BSD licensed](./LICENSE)
