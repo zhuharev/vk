@@ -4,21 +4,21 @@ Api client for VKontakte with login/pass authorization (hack) on Go (golang).
 
 go (golang) api client for vk.com
 
-#Get
+###Get
 ```Bash
     go get github.com/yanple/vk_api
     // and dependence
     go get github.com/PuerkitoBio/goquery
 ```
 
-#Import
+###Import
 ```Go
     @import "github.com/yanple/vk_api"
 ```
 
-#How to use
+##How to use
 
-##Login/pass auth
+###Login/pass auth
 
 ```Go
 	var api vk_api.Api
@@ -33,7 +33,7 @@ go (golang) api client for vk.com
 	}
 ```
 
-##By user auth (click "allow" on special vk page)
+###By user auth (click "allow" on special vk page)
 ```Go
 	var api vk_api.Api
 	authUrl, err := api.GetAuthUrl(
@@ -58,7 +58,7 @@ go (golang) api client for vk.com
 	api.ExpiresIn = expiresIn
 ```
 
-##Make query to API
+###Make query to API
 ```Go
 	params := make(map[string]string)
 	params["domain"] = "yanple"
@@ -72,7 +72,7 @@ go (golang) api client for vk.com
 
 All api methods on https://vk.com/dev/methods
 
-##Client ids (Masking only for login/pass auth)
+###Client ids (Masking only for login/pass auth)
 ```Go
     // client_id = "28909846" # Vk application ID (Android) doesn't work.
 	// client_id = "3502561"  # Vk application ID (Windows Phone)
