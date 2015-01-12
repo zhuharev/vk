@@ -12,6 +12,7 @@ import (
 )
 
 const API_METHOD_URL = "https://api.vk.com/method/"
+const AUTH_HOST = "https://oauth.vk.com/authorize"
 
 type Api struct {
 	AccessToken string
@@ -19,14 +20,14 @@ type Api struct {
 	ExpiresIn   string
 }
 
-func ParseResponseUrl(responseUrl string) (string, string, string) {
+func ParseResponseUrl(responseUrl string) (string, string, string, error) {
 	u, err := url.Parse(strings.Replace(responseUrl, "#", "?", 1))
 	if err != nil {
-		panic(err)
+		return "", "", "", err
 	}
 
 	q := u.Query()
-	return q.Get("access_token"), q.Get("user_id"), q.Get("expires_in")
+	return q.Get("access_token"), q.Get("user_id"), q.Get("expires_in"), nil
 }
 
 func parse_form(doc *goquery.Document) (url.Values, string, error) {
@@ -131,14 +132,7 @@ func (vk Api) Request(methodName string, params map[string]string) string {
 	return string(content)
 }
 
-
-func (vk Api) Auth(email string, password string, client_id string, scope string) error{
-	// client_id = "28909846" # Vk application ID (Android) doesn't work.
-	// client_id = "4672050"  # my APP (yanple)
-	// client_id = "3502561"  # Vk application ID (Windows Phone)
-	// client_id = "3087106"  # Vk application ID (iPhone)
-	// client_id = "3682744"  # Vk application ID (iPad)
-
+func (vk Api) LoginAuth(email string, password string, client_id string, scope string) error {
 	cookieJar, _ := cookiejar.New(nil)
 	client := &http.Client{
 		Jar: cookieJar,
@@ -160,12 +154,28 @@ func (vk Api) Auth(email string, password string, client_id string, scope string
 		}
 	}
 
-	fragment, err := url.ParseQuery(res.Request.URL.Fragment)
+	accessToken, userId, expiresIn, err := ParseResponseUrl(res.Request.URL.Fragment)
 
-	vk.AccessToken = fragment["access_token"][0]
-	vk.ExpiresIn = fragment["expires_in"][0]
-	vk.UserId = fragment["user_id"][0]
+	vk.AccessToken = accessToken
+	vk.ExpiresIn = userId
+	vk.UserId = expiresIn
 
 	return nil
+}
+
+func (vk Api) GetAuthUrl(redirectUri string, responseType string, client_id string, scope string) (string, error) {
+	u, err := url.Parse(AUTH_HOST)
+	if err != nil {
+		return "", err
+	}
+
+	q := u.Query()
+	q.Set("client_id", client_id)
+	q.Set("scope", scope)
+	q.Set("redirect_uri", redirectUri)
+	q.Set("response_type", responseType)
+	u.RawQuery = q.Encode()
+
+	return u.String(), nil
 }
 
