@@ -155,7 +155,6 @@ func (vk *Api) LoginAuth(email string, password string, client_id string, scope 
 			return errors.New("Not auth")
 		}
 	}
-	fmt.Println(res.Request.URL.Fragment)
 	accessToken, userId, expiresIn, err := ParseResponseUrl(res.Request.URL.Fragment)
 
 	if vk.debug {
