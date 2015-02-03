@@ -2,11 +2,12 @@ package vk_api
 
 import (
 	"errors"
-	"strings"
+	"fmt"
 	"io/ioutil"
-	"net/url"
+	"log"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -18,10 +19,11 @@ type Api struct {
 	AccessToken string
 	UserId      string
 	ExpiresIn   string
+	debug       bool
 }
 
 func ParseResponseUrl(responseUrl string) (string, string, string, error) {
-	u, err := url.Parse(strings.Replace(responseUrl, "#", "?", 1))
+	u, err := url.Parse("?" + responseUrl)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -60,8 +62,8 @@ func parse_form(doc *goquery.Document) (url.Values, string, error) {
 
 func auth_user(email string, password string, client_id string, scope string, client *http.Client) (*http.Response, error) {
 	var auth_url = "http://oauth.vk.com/oauth/authorize?" +
-			"redirect_uri=http://oauth.vk.com/blank.html&response_type=token&" +
-			"client_id=" + client_id + "&v=5.0&scope=" + scope + "&display=wap"
+		"redirect_uri=http://oauth.vk.com/blank.html&response_type=token&" +
+		"client_id=" + client_id + "&v=5.0&scope=" + scope + "&display=wap"
 
 	res, e := client.Get(auth_url)
 	if e != nil {
@@ -105,7 +107,7 @@ func get_permissions(response *http.Response, client *http.Client) (*http.Respon
 	return res, nil
 }
 
-func (vk Api) Request(methodName string, params map[string]string) string {
+func (vk *Api) Request(methodName string, params map[string]string) string {
 	u, err := url.Parse(API_METHOD_URL + methodName)
 	if err != nil {
 		panic(err)
@@ -132,7 +134,7 @@ func (vk Api) Request(methodName string, params map[string]string) string {
 	return string(content)
 }
 
-func (vk Api) LoginAuth(email string, password string, client_id string, scope string) error {
+func (vk *Api) LoginAuth(email string, password string, client_id string, scope string) error {
 	cookieJar, _ := cookiejar.New(nil)
 	client := &http.Client{
 		Jar: cookieJar,
@@ -153,8 +155,11 @@ func (vk Api) LoginAuth(email string, password string, client_id string, scope s
 			return errors.New("Not auth")
 		}
 	}
-
 	accessToken, userId, expiresIn, err := ParseResponseUrl(res.Request.URL.Fragment)
+
+	if vk.debug {
+		log.Printf("Access token %s for user %s", accessToken, userId)
+	}
 
 	vk.AccessToken = accessToken
 	vk.ExpiresIn = userId
@@ -163,7 +168,7 @@ func (vk Api) LoginAuth(email string, password string, client_id string, scope s
 	return nil
 }
 
-func (vk Api) GetAuthUrl(redirectUri string, responseType string, client_id string, scope string) (string, error) {
+func (vk *Api) GetAuthUrl(redirectUri string, responseType string, client_id string, scope string) (string, error) {
 	u, err := url.Parse(AUTH_HOST)
 	if err != nil {
 		return "", err
@@ -179,3 +184,6 @@ func (vk Api) GetAuthUrl(redirectUri string, responseType string, client_id stri
 	return u.String(), nil
 }
 
+func (vk *Api) SetDebug(s bool) {
+	vk.debug = s
+}
