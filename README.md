@@ -49,7 +49,7 @@ go (golang) api client for vk.com
 
 	//	And receive token on the special method (redirect uri)
 	currentUrl := getCurrentUrl() // for example "yoursite.com/get_access_token#access_token=3304fdb7c3b69ace6b055c6cba34e5e2f0229f7ac2ee4ef46dc9f0b241143bac993e6ced9a3fbc111111&expires_in=0&user_id=1"
-	accessToken, userId, expiresIn, err := api.ParseResponseUrl(currentUrl)
+	accessToken, userId, expiresIn, err := vk_api.ParseResponseUrl(currentUrl)
 	if err != nil {
 		panic(err)
 	}
