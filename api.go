@@ -1,4 +1,4 @@
-package vk_api
+package vk
 
 import (
 	"errors"
@@ -7,18 +7,39 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"sync"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
-const API_METHOD_URL = "https://api.vk.com/method/"
-const AUTH_HOST = "https://oauth.vk.com/authorize"
+const (
+	API_METHOD_URL = "https://api.vk.com/method/"
+	AUTH_HOST      = "https://oauth.vk.com/authorize"
+
+	VK_API_VERSION = "5.31"
+)
+
+var (
+	DEBUG = false
+	//todo change freq
+	RequestFreq = 350 * time.Millisecond
+
+	mx sync.Mutex
+)
+
+/*const (
+	METHOD_ACCOUNT_GET_BANNED = "account.getBanned"
+	METHOD_MESSAGES_SEND      = "messages.send"
+)*/
 
 type Api struct {
 	AccessToken string
 	UserId      string
 	ExpiresIn   string
 	debug       bool
+
+	LastCall time.Time
 }
 
 func ParseResponseUrl(responseUrl string) (string, string, string, error) {
@@ -62,7 +83,7 @@ func parse_form(doc *goquery.Document) (url.Values, string, error) {
 func auth_user(email string, password string, client_id string, scope string, client *http.Client) (*http.Response, error) {
 	var auth_url = "http://oauth.vk.com/oauth/authorize?" +
 		"redirect_uri=http://oauth.vk.com/blank.html&response_type=token&" +
-		"client_id=" + client_id + "&v=5.0&scope=" + scope + "&display=wap"
+		"client_id=" + client_id + "&v=" + VK_API_VERSION + "&scope=" + scope + "&display=wap"
 
 	res, e := client.Get(auth_url)
 	if e != nil {
@@ -106,31 +127,50 @@ func get_permissions(response *http.Response, client *http.Client) (*http.Respon
 	return res, nil
 }
 
-func (vk *Api) Request(methodName string, params map[string]string) string {
+func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
+	mx.Lock()
+	defer mx.Unlock()
 	u, err := url.Parse(API_METHOD_URL + methodName)
 	if err != nil {
-		panic(err)
+		return []byte{}, err
 	}
 
-	q := u.Query()
-	for k, v := range params {
-		q.Set(k, v)
+	params := url.Values{}
+	if len(p) > 0 {
+		params = p[0]
 	}
-	q.Set("access_token", vk.AccessToken)
-	u.RawQuery = q.Encode()
+	params.Set("access_token", vk.AccessToken)
+	params.Set("v", VK_API_VERSION)
+	//u.RawQuery = params.Encode()
 
-	resp, err := http.Get(u.String())
+	tnow := time.Now()
+	dur := tnow.Sub(vk.LastCall)
+	if dur < RequestFreq {
+		time.Sleep(RequestFreq - dur)
+		if vk.debug {
+			log.Printf("Slepping %s\n", dur)
+		}
+	}
+
+	if vk.debug {
+		log.Println(u.String())
+	}
+	resp, err := http.PostForm(u.String(), params)
 	if err != nil {
-		panic(err)
+		return []byte{}, err
 	}
+	vk.LastCall = tnow
 
 	defer resp.Body.Close()
 	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		return []byte{}, err
 	}
 
-	return string(content)
+	if DEBUG {
+		//	log.Println(string(content))
+	}
+	return content, nil
 }
 
 func (vk *Api) LoginAuth(email string, password string, client_id string, scope string) error {
