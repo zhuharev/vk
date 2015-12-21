@@ -2,11 +2,13 @@ package vk
 
 import (
 	"errors"
+	"github.com/ungerik/go-dry"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -17,13 +19,13 @@ const (
 	API_METHOD_URL = "https://api.vk.com/method/"
 	AUTH_HOST      = "https://oauth.vk.com/authorize"
 
-	VK_API_VERSION = "5.31"
+	VK_API_VERSION = "5.33"
 )
 
 var (
 	DEBUG = false
 	//todo change freq
-	RequestFreq = 350 * time.Millisecond
+	RequestFreq = (1000 / 3) * time.Millisecond
 
 	mx sync.Mutex
 )
@@ -39,7 +41,17 @@ type Api struct {
 	ExpiresIn   string
 	debug       bool
 
+	Lang  string
+	Https bool
+
+	cacheDir string
+	cache    bool
+
 	LastCall time.Time
+}
+
+func NewApi(at string) *Api {
+	return &Api{AccessToken: at}
 }
 
 func ParseResponseUrl(responseUrl string) (string, string, string, error) {
@@ -139,9 +151,29 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	if len(p) > 0 {
 		params = p[0]
 	}
+
+	if vk.Lang == "" {
+		vk.Lang = "en"
+	}
+	params.Set("lang", vk.Lang)
+	if vk.Https {
+		params.Set("https", "1")
+	}
 	params.Set("access_token", vk.AccessToken)
 	params.Set("v", VK_API_VERSION)
 	//u.RawQuery = params.Encode()
+
+	if vk.cache {
+		key := methodName + "?" + params.Encode()
+		md5 := dry.StringMD5Hex(key)
+		fname := vk.cacheDir + "/" + md5
+		if !dry.FileExists(vk.cacheDir) {
+			os.MkdirAll(vk.cacheDir, 0777)
+		}
+		if dry.FileExists(fname) {
+			return ioutil.ReadFile(fname)
+		}
+	}
 
 	tnow := time.Now()
 	dur := tnow.Sub(vk.LastCall)
@@ -159,12 +191,19 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-	vk.LastCall = tnow
+	vk.LastCall = time.Now()
 
 	defer resp.Body.Close()
 	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return []byte{}, err
+	}
+
+	if vk.cache {
+		key := methodName + "?" + params.Encode()
+		md5 := dry.StringMD5Hex(key)
+		fname := vk.cacheDir + "/" + md5
+		return content, ioutil.WriteFile(fname, content, 0777)
 	}
 
 	if DEBUG {
@@ -221,6 +260,19 @@ func (vk *Api) GetAuthUrl(redirectUri string, responseType string, client_id str
 	u.RawQuery = q.Encode()
 
 	return u.String(), nil
+}
+
+func (vk *Api) CacheDir(s string) {
+	vk.cacheDir = s
+	if vk.cacheDir != "" {
+		vk.cache = true
+	} else {
+		vk.cache = false
+	}
+
+	if vk.debug {
+		log.Println("Cache", vk.cache)
+	}
 }
 
 func (vk *Api) SetDebug(s bool) {
