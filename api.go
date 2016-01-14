@@ -65,17 +65,22 @@ func ParseResponseUrl(responseUrl string) (string, string, string, error) {
 }
 
 func parse_form(doc *goquery.Document) (url.Values, string, error) {
-	_origin, exists := doc.Find("#vk_wrap #m #mcont .pcont .form_item form input[name=_origin]").Attr("value")
+	_origin, exists := doc.Find("form input[name=_origin]").Attr("value")
 	if exists == false {
 		return nil, "", errors.New("Not _origin attr in vk form")
 	}
 
-	ip_h, exists := doc.Find("#vk_wrap #m #mcont .pcont .form_item form input[name=ip_h]").Attr("value")
+	ip_h, exists := doc.Find("form input[name=ip_h]").Attr("value")
 	if exists == false {
 		return nil, "", errors.New("Not ip_h attr in vk form")
 	}
 
-	to, exists := doc.Find("#vk_wrap #m #mcont .pcont .form_item form input[name=to]").Attr("value")
+	lg_h, exists := doc.Find("form input[name=lg_h]").Attr("value")
+	if exists == false {
+		return nil, "", errors.New("Not lg_h attr in vk form")
+	}
+
+	to, exists := doc.Find("form input[name=to]").Attr("value")
 	if exists == false {
 		return nil, "", errors.New("Not 'to' attr in vk form")
 	}
@@ -84,6 +89,7 @@ func parse_form(doc *goquery.Document) (url.Values, string, error) {
 	formData.Add("_origin", _origin)
 	formData.Add("ip_h", ip_h)
 	formData.Add("to", to)
+	formData.Add("lg_h", lg_h)
 
 	url, exists := doc.Find("#vk_wrap #m #mcont .pcont .form_item form").Attr("action")
 	if exists == false {
@@ -92,11 +98,18 @@ func parse_form(doc *goquery.Document) (url.Values, string, error) {
 	return formData, url, nil
 }
 
+func parse_perm_form(doc *goquery.Document) (string, error) {
+	url, exists := doc.Find("form").Attr("action")
+	if exists == false {
+		return "", errors.New("Not action attr in vk form")
+	}
+	return url, nil
+}
+
 func auth_user(email string, password string, client_id string, scope string, client *http.Client) (*http.Response, error) {
 	var auth_url = "http://oauth.vk.com/oauth/authorize?" +
 		"redirect_uri=http://oauth.vk.com/blank.html&response_type=token&" +
 		"client_id=" + client_id + "&v=" + VK_API_VERSION + "&scope=" + scope + "&display=wap"
-
 	res, e := client.Get(auth_url)
 	if e != nil {
 		return nil, e
@@ -127,12 +140,12 @@ func get_permissions(response *http.Response, client *http.Client) (*http.Respon
 		return nil, err
 	}
 
-	formData, url, err := parse_form(doc)
+	url, err := parse_perm_form(doc)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := client.PostForm(url, formData)
+	res, err := client.PostForm(url, nil)
 	if err != nil {
 		return nil, err
 	}
