@@ -29,5 +29,8 @@ const (
 	METHOD_USERS_GET_FOLLOWERS = "users.getFollowers"
 	METHOD_USERS_SEARCH        = "users.search"
 
+	METHOD_DATABASE_GET_CITIES       = "database.getCities"
+	METHOD_DATABASE_GET_CITIES_BY_ID = "database.getCitiesById"
+
 	METHOD_EXECUTE = "execute"
 )

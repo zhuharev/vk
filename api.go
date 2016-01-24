@@ -2,6 +2,7 @@ package vk
 
 import (
 	"errors"
+	"github.com/fatih/color"
 	"github.com/ungerik/go-dry"
 	"io/ioutil"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"regexp"
 	"sync"
 	"time"
 
@@ -25,7 +27,7 @@ const (
 var (
 	DEBUG = false
 	//todo change freq
-	RequestFreq = (1000 / 3) * time.Millisecond
+	RequestFreq = 1000 * time.Millisecond
 
 	mx sync.Mutex
 )
@@ -40,6 +42,8 @@ type Api struct {
 	UserId      string
 	ExpiresIn   string
 	debug       bool
+
+	PhoneCode string
 
 	Lang  string
 	Https bool
@@ -134,7 +138,7 @@ func auth_user(email string, password string, client_id string, scope string, cl
 	return res, nil
 }
 
-func get_permissions(response *http.Response, client *http.Client) (*http.Response, error) {
+func (vk *Api) get_permissions(response *http.Response, client *http.Client) (*http.Response, error) {
 	doc, err := goquery.NewDocumentFromResponse(response)
 	if err != nil {
 		return nil, err
@@ -145,6 +149,9 @@ func get_permissions(response *http.Response, client *http.Client) (*http.Respon
 		return nil, err
 	}
 
+	if vk.debug {
+		color.Green("Get permissions = %s", url)
+	}
 	res, err := client.PostForm(url, nil)
 	if err != nil {
 		return nil, err
@@ -152,11 +159,31 @@ func get_permissions(response *http.Response, client *http.Client) (*http.Respon
 	return res, nil
 }
 
+var secCheckRe = regexp.MustCompile(`var params = {code: ge\('code'\).value, to: '', al_page: '', hash: '([0-9a-zA-Z]*)'};`)
+
+func (vk *Api) security_check(response *http.Response, client *http.Client) (*http.Response, error) {
+	if vk.debug {
+		color.Green("Security check with code = %s", vk.PhoneCode)
+	}
+	arr := secCheckRe.FindStringSubmatch("var params = {code: ge('code').value, to: '', al_page: '', hash: '7595037709139067db'};")
+	if len(arr) != 2 {
+		return nil, errors.New("Unknown error")
+	}
+	form := url.Values{}
+	form.Set("code", vk.PhoneCode)
+	form.Set("hash", arr[1])
+
+	return client.PostForm("https://vk.com/login.php?act=security_check", form)
+}
+
 func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	mx.Lock()
-	defer mx.Unlock()
+	if vk.LastCall.IsZero() {
+		vk.LastCall = time.Now()
+	}
 	u, err := url.Parse(API_METHOD_URL + methodName)
 	if err != nil {
+		mx.Unlock()
 		return []byte{}, err
 	}
 
@@ -168,6 +195,12 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	if vk.Lang == "" {
 		vk.Lang = "en"
 	}
+
+	var pars, _ = url.QueryUnescape(params.Encode())
+	if len(pars) > 80 {
+		pars = pars[:80]
+	}
+
 	params.Set("lang", vk.Lang)
 	if vk.Https {
 		params.Set("https", "1")
@@ -184,27 +217,28 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 			os.MkdirAll(vk.cacheDir, 0777)
 		}
 		if dry.FileExists(fname) {
+			mx.Unlock()
 			return ioutil.ReadFile(fname)
 		}
 	}
 
-	tnow := time.Now()
-	dur := tnow.Sub(vk.LastCall)
-	if dur < RequestFreq {
+	dur := time.Since(vk.LastCall)
+	if dur < RequestFreq && methodName != METHOD_USERS_GET {
 		time.Sleep(RequestFreq - dur)
 		if vk.debug {
-			log.Printf("Slepping %s\n", dur)
+			log.Printf("Slepping %s\n", RequestFreq-dur)
 		}
 	}
+	vk.LastCall = time.Now()
+	mx.Unlock()
 
 	if vk.debug {
-		log.Println(u.String())
+		log.Println(u.String(), pars)
 	}
 	resp, err := http.PostForm(u.String(), params)
 	if err != nil {
 		return []byte{}, err
 	}
-	vk.LastCall = time.Now()
 
 	defer resp.Body.Close()
 	content, err := ioutil.ReadAll(resp.Body)
@@ -222,6 +256,7 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	if DEBUG {
 		//	log.Println(string(content))
 	}
+	vk.LastCall = time.Now()
 	return content, nil
 }
 
@@ -236,14 +271,27 @@ func (vk *Api) LoginAuth(email string, password string, client_id string, scope 
 		return err
 	}
 
-	if res.Request.URL.Path != "/blank.html" {
-		res, err = get_permissions(res, client)
-		if err != nil {
-			return err
-		}
+	color.Green("Path %s (%s)", res.Request.URL.Path, res.Request.URL.Path)
 
-		if res.Request.URL.Path != "/blank.html" {
-			return errors.New("Not auth")
+	if res.Request.URL.Path != "/blank.html" {
+		if res.Request.URL.Query().Get("act") == "security_check" {
+			_, err = vk.security_check(res, client)
+			if err != nil {
+				return err
+			}
+			res, err = auth_user(email, password, client_id, scope, client)
+			if err != nil {
+				return err
+			}
+		} else {
+			res, err = vk.get_permissions(res, client)
+			if err != nil {
+				return err
+			}
+
+			if res.Request.URL.Path != "/blank.html" {
+				return errors.New("Not auth")
+			}
 		}
 	}
 	accessToken, userId, expiresIn, err := ParseResponseUrl(res.Request.URL.Fragment)
