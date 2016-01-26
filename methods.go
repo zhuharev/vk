@@ -3,6 +3,9 @@ package vk
 const (
 	METHOD_ACCOUNT_GET_BANNED = "account.getBanned"
 
+	METHOD_AUTH_SIGNUP  = "auth.signup"
+	METHOD_AUTH_CONFIRM = "auth.confirm"
+
 	METHOD_GROUPS_GET_MEMBERS = "groups.getMembers"
 
 	METHOD_MESSAGES_SEND         = "messages.send"

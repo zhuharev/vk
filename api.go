@@ -27,7 +27,7 @@ const (
 var (
 	DEBUG = false
 	//todo change freq
-	RequestFreq = 1000 * time.Millisecond
+	RequestFreq = 334 * time.Millisecond
 
 	mx sync.Mutex
 )
@@ -44,6 +44,9 @@ type Api struct {
 	debug       bool
 
 	PhoneCode string
+
+	ClientId     int
+	ClientSecret string
 
 	Lang  string
 	Https bool
@@ -181,11 +184,6 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	if vk.LastCall.IsZero() {
 		vk.LastCall = time.Now()
 	}
-	u, err := url.Parse(API_METHOD_URL + methodName)
-	if err != nil {
-		mx.Unlock()
-		return []byte{}, err
-	}
 
 	params := url.Values{}
 	if len(p) > 0 {
@@ -233,15 +231,10 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	mx.Unlock()
 
 	if vk.debug {
-		log.Println(u.String(), pars)
+		log.Println(methodName, pars)
 	}
-	resp, err := http.PostForm(u.String(), params)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	defer resp.Body.Close()
-	content, err := ioutil.ReadAll(resp.Body)
+	color.Yellow("REQUEST %s", time.Now())
+	content, err := vk.request(methodName, params)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -256,7 +249,29 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	if DEBUG {
 		//	log.Println(string(content))
 	}
+	mx.Lock()
 	vk.LastCall = time.Now()
+	mx.Unlock()
+	return content, nil
+}
+
+func (vk *Api) request(methodName string, p url.Values) ([]byte, error) {
+	u, err := url.Parse(API_METHOD_URL + methodName)
+	if err != nil {
+		mx.Unlock()
+		return []byte{}, err
+	}
+
+	resp, err := http.PostForm(u.String(), p)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	defer resp.Body.Close()
+	content, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return []byte{}, err
+	}
 	return content, nil
 }
 
