@@ -1,7 +1,9 @@
 package vk
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/fatih/color"
 	"github.com/ungerik/go-dry"
 	"io/ioutil"
@@ -21,13 +23,13 @@ const (
 	API_METHOD_URL = "https://api.vk.com/method/"
 	AUTH_HOST      = "https://oauth.vk.com/authorize"
 
-	VK_API_VERSION = "5.33"
+	VK_API_VERSION = "5.50"
 )
 
 var (
 	DEBUG = false
 	//todo change freq
-	RequestFreq = 334 * time.Millisecond
+	RequestFreq = 333 * time.Millisecond
 
 	mx sync.Mutex
 )
@@ -47,6 +49,8 @@ type Api struct {
 
 	ClientId     int
 	ClientSecret string
+
+	StdCaptcha bool
 
 	Lang  string
 	Https bool
@@ -203,7 +207,9 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	if vk.Https {
 		params.Set("https", "1")
 	}
-	params.Set("access_token", vk.AccessToken)
+	if tok := params.Get("access_token"); tok == "" {
+		params.Set("access_token", vk.AccessToken)
+	}
 	params.Set("v", VK_API_VERSION)
 	//u.RawQuery = params.Encode()
 
@@ -233,10 +239,33 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	if vk.debug {
 		log.Println(methodName, pars)
 	}
-	color.Yellow("REQUEST %s", time.Now())
 	content, err := vk.request(methodName, params)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
+	}
+
+	//handle error
+	if content[2] == 'e' {
+		var er ErrResponse
+		err = json.Unmarshal(content, &er)
+		if err != nil {
+			return nil, err
+		}
+		if er.Error.Code != 0 && er.Error.Code != 14 {
+			return nil, fmt.Errorf("%s", er.Error.Msg)
+		}
+		if er.Error.Code == 14 && vk.StdCaptcha {
+			fmt.Printf("Open in your browser %s\n", er.Error.CapthchaImg)
+			fmt.Println("Write captcha key here")
+			var key string
+			fmt.Scanln(&key)
+			params.Set("captcha_sid", er.Error.CaptchaSid)
+			params.Set("captcha_key", key)
+			content, err = vk.request(methodName, params)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	if vk.cache {
@@ -253,6 +282,15 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	vk.LastCall = time.Now()
 	mx.Unlock()
 	return content, nil
+}
+
+type ErrResponse struct {
+	Error struct {
+		Code        int    `json:"error_code"`
+		Msg         string `json:"error_msg"`
+		CaptchaSid  string `json:"captcha_sid"`
+		CapthchaImg string `json:"captcha_img"`
+	} `json:"error"`
 }
 
 func (vk *Api) request(methodName string, p url.Values) ([]byte, error) {
@@ -272,6 +310,7 @@ func (vk *Api) request(methodName string, p url.Values) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
+
 	return content, nil
 }
 
