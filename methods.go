@@ -1,11 +1,14 @@
 package vk
 
 const (
-	METHOD_ACCOUNT_GET_BANNED = "account.getBanned"
+	METHOD_ACCOUNT_GET_BANNED  = "account.getBanned"
+	METHOD_ACCOUNT_SET_ONLINE  = "account.setOnline"
+	METHOD_ACCOUNT_SET_OFFLINE = "account.setOffline"
 
 	METHOD_AUTH_SIGNUP  = "auth.signup"
 	METHOD_AUTH_CONFIRM = "auth.confirm"
 
+	METHOD_GROUPS_GET         = "groups.get"
 	METHOD_GROUPS_GET_MEMBERS = "groups.getMembers"
 	METHOD_GROUPS_JOIN        = "groups.join"
 	METHOD_GROUPS_LEAVE       = "groups.leave"
@@ -36,9 +39,10 @@ const (
 
 	METHOD_PHOTOS_GET = "photos.get"
 
-	METHOD_USERS_GET           = "users.get"
-	METHOD_USERS_GET_FOLLOWERS = "users.getFollowers"
-	METHOD_USERS_SEARCH        = "users.search"
+	METHOD_USERS_GET               = "users.get"
+	METHOD_USERS_GET_FOLLOWERS     = "users.getFollowers"
+	METHOD_USERS_SEARCH            = "users.search"
+	METHOD_USERS_GET_SUBSCRIPTIONS = "users.getSubscriptions"
 
 	METHOD_STATUS_SET = "status.set"
 

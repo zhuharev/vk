@@ -227,7 +227,7 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	}
 
 	dur := time.Since(vk.LastCall)
-	if dur < RequestFreq && methodName != METHOD_USERS_GET {
+	if dur < RequestFreq /*&&  methodName != METHOD_USERS_GET*/ {
 		time.Sleep(RequestFreq - dur)
 		if vk.debug {
 			log.Printf("Slepping %s\n", RequestFreq-dur)
