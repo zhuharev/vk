@@ -59,10 +59,16 @@ type Api struct {
 	cache    bool
 
 	LastCall time.Time
+
+	httpClient *http.Client
 }
 
 func NewApi(at string) *Api {
-	return &Api{AccessToken: at}
+	tr := &http.Transport{
+		MaxIdleConnsPerHost: 50,
+	}
+	client := &http.Client{Transport: tr}
+	return &Api{AccessToken: at, httpClient: client}
 }
 
 func ParseResponseUrl(responseUrl string) (string, string, string, error) {
@@ -300,7 +306,7 @@ func (vk *Api) request(methodName string, p url.Values) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	resp, err := http.PostForm(u.String(), p)
+	resp, err := vk.httpClient.PostForm(u.String(), p)
 	if err != nil {
 		return []byte{}, err
 	}
