@@ -5,6 +5,9 @@ const (
 	METHOD_ACCOUNT_SET_ONLINE  = "account.setOnline"
 	METHOD_ACCOUNT_SET_OFFLINE = "account.setOffline"
 
+	METHOD_AUDIO_GET           = "audio.get"
+	METHOD_AUDIO_SET_BROADCAST = "audio.setBroadcast"
+
 	METHOD_AUTH_SIGNUP  = "auth.signup"
 	METHOD_AUTH_CONFIRM = "auth.confirm"
 
@@ -37,7 +40,8 @@ const (
 	METHOD_FRIENDS_GET_MUTUAL      = "friends.getMutual"
 	METHOD_FRIENDS_GET_SUGGESTIONS = "friends.getSuggestions"
 
-	METHOD_PHOTOS_GET = "photos.get"
+	METHOD_PHOTOS_GET     = "photos.get"
+	METHOD_PHOTOS_GET_ALL = "photos.getAll"
 
 	METHOD_USERS_GET               = "users.get"
 	METHOD_USERS_GET_FOLLOWERS     = "users.getFollowers"
@@ -50,6 +54,8 @@ const (
 	METHOD_DATABASE_GET_CITIES_BY_ID = "database.getCitiesById"
 
 	METHOD_UTILS_RESOLVE_SCREEN_NAME = "utils.resolveScreenName"
+
+	METHOD_NEWSFEED_ADD_BAN = "newsfeed.addBan"
 
 	METHOD_EXECUTE = "execute"
 )
