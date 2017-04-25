@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fatih/color"
-	"github.com/ungerik/go-dry"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -15,6 +13,9 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/fatih/color"
+	"github.com/ungerik/go-dry"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -69,6 +70,19 @@ func NewApi(at string) *Api {
 	}
 	client := &http.Client{Transport: tr}
 	return &Api{AccessToken: at, httpClient: client}
+}
+
+func (a *Api) HTTPClient() *http.Client {
+	if a.httpClient != nil {
+		return a.httpClient
+	} else {
+		tr := &http.Transport{
+			MaxIdleConnsPerHost: 50,
+		}
+		client := &http.Client{Transport: tr}
+		a.httpClient = client
+		return a.httpClient
+	}
 }
 
 func ParseResponseUrl(responseUrl string) (string, string, string, error) {
@@ -127,6 +141,8 @@ func auth_user(email string, password string, client_id string, scope string, cl
 	var auth_url = "http://oauth.vk.com/oauth/authorize?" +
 		"redirect_uri=http://oauth.vk.com/blank.html&response_type=token&" +
 		"client_id=" + client_id + "&v=" + VK_API_VERSION + "&scope=" + scope + "&display=wap"
+	log.Printf("Login url = %s\n", auth_url)
+
 	res, e := client.Get(auth_url)
 	if e != nil {
 		return nil, e
@@ -299,14 +315,17 @@ type ErrResponse struct {
 	} `json:"error"`
 }
 
-func (vk *Api) request(methodName string, p url.Values) ([]byte, error) {
+func (a *Api) request(methodName string, p url.Values) ([]byte, error) {
 	u, err := url.Parse(API_METHOD_URL + methodName)
 	if err != nil {
 		mx.Unlock()
 		return []byte{}, err
 	}
+	if a.debug {
+		log.Println(u.String() + "?" + p.Encode())
+	}
 
-	resp, err := vk.httpClient.PostForm(u.String(), p)
+	resp, err := a.HTTPClient().PostForm(u.String(), p)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -349,12 +368,16 @@ func (vk *Api) LoginAuth(email string, password string, client_id string, scope 
 				return err
 			}
 
-			if res.Request.URL.Path != "/blank.html" {
-				return errors.New("Not auth")
-			}
+			//if res.Request.URL.Path != "/blank.html" {
+			//	return errors.New("Not auth (path not /blank.html), path: " + res.Request.URL.Path)
+			//}
 		}
 	}
 	accessToken, userId, expiresIn, err := ParseResponseUrl(res.Request.URL.Fragment)
+
+	if err != nil {
+		log.Println(err)
+	}
 
 	if vk.debug {
 		log.Printf("Access token %s for user %s", accessToken, userId)
