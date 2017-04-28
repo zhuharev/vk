@@ -2,13 +2,14 @@ package main
 
 import (
 	"log"
+	"net/url"
 
-	"github.com/yanple/vk_api"
+	"github.com/zhuharev/vk"
 )
 
 func main() {
 	// Login/pass auth
-	var api = &vk_api.Api{}
+	var api = &vk.Api{}
 	err := api.LoginAuth(
 		"email/phone",
 		"pass",
@@ -43,12 +44,12 @@ func main() {
 	//	api.ExpiresIn = expiresIn
 
 	// Make query
-	params := make(map[string]string)
-	params["domain"] = "yanple"
-	params["count"] = "1"
+	params := url.Values{}
+	params["domain"] = []string{"yanple"}
+	params["count"] = []string{"1"}
 
-	strResp := api.Request("wall.get", params)
-	if strResp != "" {
-		log.Println(strResp)
+	strResp, _ := api.Request("wall.get", params)
+	if len(strResp) > 0 {
+		log.Printf("%s\n", strResp)
 	}
 }
