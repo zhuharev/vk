@@ -401,6 +401,41 @@ func GetAuthURL(redirectURI string, responseType string, clientID string, scope 
 	return u.String(), nil
 }
 
+// GetAccessTokenByCode return's access_token with authcode flow https://vk.com/dev/authcode_flow_user
+func GetAccessTokenByCode(code string, clientID string, clientSecret string, redirectURI string) (accessToken string, userID int, err error) {
+	params := url.Values{}
+	params.Set("code", code)
+	params.Set("client_id", clientID)
+	params.Set("client_secret", clientSecret)
+	params.Set("redirect_url", redirectURI)
+
+	uri := AccessTokenURL + "?" + params.Encode()
+
+	resp, err := http.Get(uri)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	type TokenResponse struct {
+		Token  string `json:"access_token"`
+		UserID int    `json:"user_id"`
+	}
+
+	var tr = new(TokenResponse)
+
+	jDec := json.NewDecoder(resp.Body)
+	err = jDec.Decode(tr)
+	if err != nil {
+		return
+	}
+
+	accessToken = tr.Token
+	userID = tr.UserID
+
+	return
+}
+
 func (vk *Api) CacheDir(s string) {
 	vk.cacheDir = s
 	if vk.cacheDir != "" {
