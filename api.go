@@ -14,32 +14,28 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatih/color"
-	"github.com/ungerik/go-dry"
-
 	"github.com/PuerkitoBio/goquery"
-)
-
-const (
-	API_METHOD_URL = "https://api.vk.com/method/"
-	AUTH_HOST      = "https://oauth.vk.com/authorize"
-
-	VK_API_VERSION = "5.50"
+	"github.com/ungerik/go-dry"
 )
 
 var (
-	DEBUG = false
-	//todo change freq
+	APIURL         = "https://api.vk.com/method/"
+	OAuthURL       = "https://oauth.vk.com"
+	AuthHost       = OAuthURL + "/authorize"
+	AccessTokenURL = OAuthURL + "/access_token"
+
+	// VkAPIVersion is lastest vk.com api version supported
+	VkAPIVersion = "5.63"
+)
+
+var (
+	// RequestFreq is request limiter
 	RequestFreq = 333 * time.Millisecond
 
 	mx sync.Mutex
 )
 
-/*const (
-	METHOD_ACCOUNT_GET_BANNED = "account.getBanned"
-	METHOD_MESSAGES_SEND      = "messages.send"
-)*/
-
+// Api main struct
 type Api struct {
 	AccessToken string
 	UserId      string
@@ -75,14 +71,13 @@ func NewApi(at string) *Api {
 func (a *Api) HTTPClient() *http.Client {
 	if a.httpClient != nil {
 		return a.httpClient
-	} else {
-		tr := &http.Transport{
-			MaxIdleConnsPerHost: 50,
-		}
-		client := &http.Client{Transport: tr}
-		a.httpClient = client
-		return a.httpClient
 	}
+	tr := &http.Transport{
+		MaxIdleConnsPerHost: 50,
+	}
+	client := &http.Client{Transport: tr}
+	a.httpClient = client
+	return a.httpClient
 }
 
 func ParseResponseUrl(responseUrl string) (string, string, string, error) {
@@ -138,12 +133,12 @@ func parse_perm_form(doc *goquery.Document) (string, error) {
 }
 
 func auth_user(email string, password string, client_id string, scope string, client *http.Client) (*http.Response, error) {
-	var auth_url = "http://oauth.vk.com/oauth/authorize?" +
+	var authURL = "http://oauth.vk.com/oauth/authorize?" +
 		"redirect_uri=http://oauth.vk.com/blank.html&response_type=token&" +
-		"client_id=" + client_id + "&v=" + VK_API_VERSION + "&scope=" + scope + "&display=wap"
-	log.Printf("Login url = %s\n", auth_url)
+		"client_id=" + client_id + "&v=" + VkAPIVersion + "&scope=" + scope + "&display=wap"
+	log.Printf("Login url = %s\n", authURL)
 
-	res, e := client.Get(auth_url)
+	res, e := client.Get(authURL)
 	if e != nil {
 		return nil, e
 	}
@@ -179,7 +174,7 @@ func (vk *Api) get_permissions(response *http.Response, client *http.Client) (*h
 	}
 
 	if vk.debug {
-		color.Green("Get permissions = %s", url)
+		log.Printf("Get permissions = %s\n", url)
 	}
 	res, err := client.PostForm(url, nil)
 	if err != nil {
@@ -190,9 +185,9 @@ func (vk *Api) get_permissions(response *http.Response, client *http.Client) (*h
 
 var secCheckRe = regexp.MustCompile(`var params = {code: ge\('code'\).value, to: '', al_page: '', hash: '([0-9a-zA-Z]*)'};`)
 
-func (vk *Api) security_check(response *http.Response, client *http.Client) (*http.Response, error) {
+func (vk *Api) securityCheck(response *http.Response, client *http.Client) (*http.Response, error) {
 	if vk.debug {
-		color.Green("Security check with code = %s", vk.PhoneCode)
+		log.Printf("Security check with code = %s\n", vk.PhoneCode)
 	}
 	arr := secCheckRe.FindStringSubmatch("var params = {code: ge('code').value, to: '', al_page: '', hash: '7595037709139067db'};")
 	if len(arr) != 2 {
@@ -232,7 +227,7 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	if tok := params.Get("access_token"); tok == "" {
 		params.Set("access_token", vk.AccessToken)
 	}
-	params.Set("v", VK_API_VERSION)
+	params.Set("v", VkAPIVersion)
 	//u.RawQuery = params.Encode()
 
 	if vk.cache {
@@ -297,9 +292,6 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 		return content, ioutil.WriteFile(fname, content, 0777)
 	}
 
-	if DEBUG {
-		//	log.Println(string(content))
-	}
 	mx.Lock()
 	vk.LastCall = time.Now()
 	mx.Unlock()
@@ -316,7 +308,7 @@ type ErrResponse struct {
 }
 
 func (a *Api) request(methodName string, p url.Values) ([]byte, error) {
-	u, err := url.Parse(API_METHOD_URL + methodName)
+	u, err := url.Parse(APIURL + methodName)
 	if err != nil {
 		mx.Unlock()
 		return []byte{}, err
@@ -350,11 +342,13 @@ func (vk *Api) LoginAuth(email string, password string, client_id string, scope 
 		return err
 	}
 
-	color.Green("Path %s (%s)", res.Request.URL.Path, res.Request.URL.Path)
+	if vk.debug {
+		log.Printf("Path %s (%s)\n", res.Request.URL.Path, res.Request.URL.Path)
+	}
 
 	if res.Request.URL.Path != "/blank.html" {
 		if res.Request.URL.Query().Get("act") == "security_check" {
-			_, err = vk.security_check(res, client)
+			_, err = vk.securityCheck(res, client)
 			if err != nil {
 				return err
 			}
@@ -392,7 +386,7 @@ func (vk *Api) LoginAuth(email string, password string, client_id string, scope 
 
 // GetAuthURL return url to auth in VK
 func GetAuthURL(redirectURI string, responseType string, clientID string, scope string) (string, error) {
-	u, err := url.Parse(AUTH_HOST)
+	u, err := url.Parse(AuthHost)
 	if err != nil {
 		return "", err
 	}
