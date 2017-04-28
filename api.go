@@ -402,12 +402,12 @@ func GetAuthURL(redirectURI string, responseType string, clientID string, scope 
 }
 
 // GetAccessTokenByCode return's access_token with authcode flow https://vk.com/dev/authcode_flow_user
-func GetAccessTokenByCode(code string, clientID string, clientSecret string, redirectURI string) (accessToken string, userID int, err error) {
+func GetAccessTokenByCode(code string, clientID string, clientSecret string, redirectURI string) (accessToken string, userID int64, err error) {
 	params := url.Values{}
 	params.Set("code", code)
 	params.Set("client_id", clientID)
 	params.Set("client_secret", clientSecret)
-	params.Set("redirect_url", redirectURI)
+	params.Set("redirect_uri", redirectURI)
 
 	uri := AccessTokenURL + "?" + params.Encode()
 
@@ -419,7 +419,7 @@ func GetAccessTokenByCode(code string, clientID string, clientSecret string, red
 
 	type TokenResponse struct {
 		Token  string `json:"access_token"`
-		UserID int    `json:"user_id"`
+		UserID int64  `json:"user_id"`
 	}
 
 	var tr = new(TokenResponse)
