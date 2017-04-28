@@ -390,16 +390,17 @@ func (vk *Api) LoginAuth(email string, password string, client_id string, scope 
 	return nil
 }
 
-func (vk *Api) GetAuthUrl(redirectUri string, responseType string, client_id string, scope string) (string, error) {
+// GetAuthURL return url to auth in VK
+func GetAuthURL(redirectURI string, responseType string, clientID string, scope string) (string, error) {
 	u, err := url.Parse(AUTH_HOST)
 	if err != nil {
 		return "", err
 	}
 
 	q := u.Query()
-	q.Set("client_id", client_id)
+	q.Set("client_id", clientID)
 	q.Set("scope", scope)
-	q.Set("redirect_uri", redirectUri)
+	q.Set("redirect_uri", redirectURI)
 	q.Set("response_type", responseType)
 	u.RawQuery = q.Encode()
 
