@@ -450,5 +450,6 @@ func (vk *Api) CacheDir(s string) {
 }
 
 func (vk *Api) SetDebug(s bool) {
+	log.SetFlags(log.LstdFlags | log.Llongfile)
 	vk.debug = s
 }

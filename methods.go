@@ -40,8 +40,10 @@ const (
 	METHOD_FRIENDS_GET_MUTUAL      = "friends.getMutual"
 	METHOD_FRIENDS_GET_SUGGESTIONS = "friends.getSuggestions"
 
-	METHOD_PHOTOS_GET     = "photos.get"
-	METHOD_PHOTOS_GET_ALL = "photos.getAll"
+	METHOD_PHOTOS_GET                    = "photos.get"
+	METHOD_PHOTOS_GET_ALL                = "photos.getAll"
+	METHOD_PHOTOS_GET_WALL_UPLOAD_SERVER = "photos.getWallUploadServer"
+	METHOD_PHOTOS_SAVE_WALL_PHOTO        = "photos.saveWallPhoto"
 
 	METHOD_USERS_GET               = "users.get"
 	METHOD_USERS_GET_FOLLOWERS     = "users.getFollowers"
