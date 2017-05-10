@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +24,8 @@ var (
 	OAuthURL       = "https://oauth.vk.com"
 	AuthHost       = OAuthURL + "/authorize"
 	AccessTokenURL = OAuthURL + "/access_token"
+
+	DefaultUserAgent = `VKAndroidApp/4.3-849 (Android 7.1.2; SDK 25; armeabi-v7a; OnePlus A0001; ru)`
 
 	// VkAPIVersion is lastest vk.com api version supported
 	VkAPIVersion = "5.63"
@@ -66,6 +69,10 @@ func NewApi(at string) *Api {
 	}
 	client := &http.Client{Transport: tr}
 	return &Api{AccessToken: at, httpClient: client}
+}
+
+func (a *Api) SetHTTPClient(client *http.Client) {
+	a.httpClient = client
 }
 
 func (a *Api) HTTPClient() *http.Client {
@@ -311,13 +318,23 @@ func (a *Api) request(methodName string, p url.Values) ([]byte, error) {
 	u, err := url.Parse(APIURL + methodName)
 	if err != nil {
 		mx.Unlock()
-		return []byte{}, err
+		return nil, err
 	}
 	if a.debug {
 		log.Println(u.String() + "?" + p.Encode())
 	}
 
-	resp, err := a.HTTPClient().PostForm(u.String(), p)
+	req, err := http.NewRequest("POST", u.String(), strings.NewReader(p.Encode()))
+	if err != nil {
+		if a.debug {
+			log.Println(err)
+		}
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", DefaultUserAgent)
+
+	resp, err := a.HTTPClient().Do(req)
 	if err != nil {
 		return []byte{}, err
 	}
