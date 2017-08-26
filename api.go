@@ -25,10 +25,12 @@ var (
 	AuthHost       = OAuthURL + "/authorize"
 	AccessTokenURL = OAuthURL + "/access_token"
 
-	DefaultUserAgent = `VKAndroidApp/4.3-849 (Android 7.1.2; SDK 25; armeabi-v7a; OnePlus A0001; ru)`
+	DefaultRedirectURI = "https://oauth.vk.com/blank.html"
+
+	DefaultUserAgent = `VKAndroidApp/4.8.3-1113 (Android 4.4.2; SDK 10; armeabi-v7a; ZTE ZTE Blade L3; ru)`
 
 	// VkAPIVersion is lastest vk.com api version supported
-	VkAPIVersion = "5.63"
+	VkAPIVersion = "5.64"
 )
 
 var (
@@ -268,6 +270,10 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 		return nil, err
 	}
 
+	if vk.debug {
+		log.Println(string(content))
+	}
+
 	//handle error
 	if content[2] == 'e' {
 		var er ErrResponse
@@ -320,11 +326,23 @@ func (a *Api) request(methodName string, p url.Values) ([]byte, error) {
 		mx.Unlock()
 		return nil, err
 	}
+
+	// android
+	sig := Sig(p, methodName, "hHbZxrka2uZ6jB1inYsH")
+	p.Set("sig", sig)
+	var (
+		req *http.Request
+	)
+
 	if a.debug {
 		log.Println(u.String() + "?" + p.Encode())
 	}
 
-	req, err := http.NewRequest("POST", u.String(), strings.NewReader(p.Encode()))
+	//if len(p.Encode()) > 1024 {
+	req, err = http.NewRequest("POST", u.String(), strings.NewReader(p.Encode()))
+	//} else {
+	//	req, err = http.NewRequest("POST", u.String()+"?"+p.Encode(), nil)
+	//}
 	if err != nil {
 		if a.debug {
 			log.Println(err)
@@ -333,6 +351,8 @@ func (a *Api) request(methodName string, p url.Values) ([]byte, error) {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("User-Agent", DefaultUserAgent)
+	req.Header.Set("X-Get-Processing-Time", "1")
+	req.Header.Set("Cookie", "remixlang=0")
 
 	resp, err := a.HTTPClient().Do(req)
 	if err != nil {
