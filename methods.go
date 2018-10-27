@@ -32,6 +32,7 @@ const (
 	METHOD_LIKES_IS_LIKED = "likes.isLiked"
 	METHOD_LIKES_GET_LIST = "likes.getList"
 
+	METHOD_WALL_EDIT           = "wall.edit"
 	METHOD_WALL_GET            = "wall.get"
 	METHOD_WALL_GET_BY_ID      = "wall.getById"
 	METHOD_WALL_POST           = "wall.post"
