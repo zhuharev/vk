@@ -63,13 +63,15 @@ type Api struct {
 	LastCall time.Time
 
 	httpClient *http.Client
+
+	CaptchaResolver CaptchaResolver
 }
 
 func NewApi(at string) *Api {
 	tr := &http.Transport{
 		MaxIdleConnsPerHost: 50,
 	}
-	client := &http.Client{Transport: tr}
+	client := &http.Client{Transport: tr, Timeout: 30 * time.Second}
 	return &Api{AccessToken: at, httpClient: client}
 }
 
@@ -84,7 +86,7 @@ func (a *Api) HTTPClient() *http.Client {
 	tr := &http.Transport{
 		MaxIdleConnsPerHost: 50,
 	}
-	client := &http.Client{Transport: tr}
+	client := &http.Client{Transport: tr, Timeout: 30 * time.Second}
 	a.httpClient = client
 	return a.httpClient
 }
@@ -283,18 +285,29 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 		}
 		if er.Error.Code != 0 && er.Error.Code != 14 {
 			return nil, fmt.Errorf("%s", er.Error.Msg)
-		}
-		if er.Error.Code == 14 && vk.StdCaptcha {
-			fmt.Printf("Open in your browser %s\n", er.Error.CapthchaImg)
-			fmt.Println("Write captcha key here")
-			var key string
-			fmt.Scanln(&key)
+		} else if er.Error.Code == 14 {
+			var code string
+			if vk.CaptchaResolver != nil {
+				code, err = vk.CaptchaResolver.ResolveCaptcha(er.Error.CaptchaSid, er.Error.CapthchaImg)
+				if err != nil {
+					return nil, err
+				}
+			} else if vk.StdCaptcha {
+				fmt.Printf("Open in your browser %s\n", er.Error.CapthchaImg)
+				fmt.Println("Write captcha key here")
+				fmt.Scanln(&code)
+			} else {
+				return nil, fmt.Errorf("captcha needed")
+			}
 			params.Set("captcha_sid", er.Error.CaptchaSid)
-			params.Set("captcha_key", key)
+			params.Set("captcha_key", code)
 			content, err = vk.request(methodName, params)
 			if err != nil {
 				return nil, err
 			}
+		}
+		if er.Error.Code == 14 && vk.StdCaptcha {
+
 		}
 	}
 
@@ -487,6 +500,8 @@ func (vk *Api) CacheDir(s string) {
 }
 
 func (vk *Api) SetDebug(s bool) {
-	log.SetFlags(log.LstdFlags | log.Llongfile)
+	if s {
+		log.SetFlags(log.LstdFlags | log.Llongfile)
+	}
 	vk.debug = s
 }
