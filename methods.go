@@ -13,12 +13,14 @@ const (
 
 	METHOD_BOARD_GET_COMMENTS = "board.getComments"
 
-	METHOD_GROUPS_GET         = "groups.get"
-	METHOD_GROUPS_GET_BY_ID   = "groups.getById"
-	METHOD_GROUPS_GET_MEMBERS = "groups.getMembers"
-	METHOD_GROUPS_JOIN        = "groups.join"
-	METHOD_GROUPS_LEAVE       = "groups.leave"
-	METHOD_GROUPS_SEARCH      = "groups.search"
+	groupsPrefix              = "groups."
+	METHOD_GROUPS_GET         = groupsPrefix + "get"
+	METHOD_GROUPS_GET_BY_ID   = groupsPrefix + "getById"
+	METHOD_GROUPS_GET_MEMBERS = groupsPrefix + "getMembers"
+	METHOD_GROUPS_JOIN        = groupsPrefix + "join"
+	METHOD_GROUPS_LEAVE       = groupsPrefix + "leave"
+	METHOD_GROUPS_SEARCH      = groupsPrefix + "search"
+	METHOD_GROUPS_IS_MEMBER   = groupsPrefix + "isMember"
 
 	METHOD_MESSAGES_SEND         = "messages.send"
 	METHOD_MESSAGES_GET          = "messages.get"
