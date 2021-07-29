@@ -155,7 +155,7 @@ func auth_user(email string, password string, client_id string, scope string, cl
 		return nil, e
 	}
 
-	doc, err := goquery.NewDocumentFromResponse(res)
+	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -171,11 +171,12 @@ func auth_user(email string, password string, client_id string, scope string, cl
 	if e != nil {
 		return nil, e
 	}
+
 	return res, nil
 }
 
 func (vk *Api) get_permissions(response *http.Response, client *http.Client) (*http.Response, error) {
-	doc, err := goquery.NewDocumentFromResponse(response)
+	doc, err := goquery.NewDocumentFromReader(response.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +265,10 @@ func (vk *Api) request(ctx context.Context, methodName string, p ...url.Values) 
 		md5 := dry.StringMD5Hex(key)
 		fname := vk.cacheDir + "/" + md5
 		if !dry.FileExists(vk.cacheDir) {
-			os.MkdirAll(vk.cacheDir, 0777)
+			err := os.MkdirAll(vk.cacheDir, 0777)
+			if err != nil {
+				return nil, err
+			}
 		}
 		if dry.FileExists(fname) {
 			mx.Unlock()
@@ -404,6 +408,7 @@ func (vk *Api) LoginAuth(email string, password string, client_id string, scope 
 	if err != nil {
 		return err
 	}
+	defer res.Body.Close()
 
 	if vk.debug {
 		log.Printf("Path %s (%s)\n", res.Request.URL.Path, res.Request.URL.Path)
@@ -419,6 +424,7 @@ func (vk *Api) LoginAuth(email string, password string, client_id string, scope 
 			if err != nil {
 				return err
 			}
+			defer res.Body.Close()
 		} else {
 			res, err = vk.get_permissions(res, client)
 			if err != nil {
