@@ -1,6 +1,7 @@
 package vk
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -103,22 +104,22 @@ func ParseResponseUrl(responseUrl string) (string, string, string, error) {
 
 func parse_form(doc *goquery.Document) (url.Values, string, error) {
 	_origin, exists := doc.Find("form input[name=_origin]").Attr("value")
-	if exists == false {
+	if !exists {
 		return nil, "", errors.New("Not _origin attr in vk form")
 	}
 
 	ip_h, exists := doc.Find("form input[name=ip_h]").Attr("value")
-	if exists == false {
+	if !exists {
 		return nil, "", errors.New("Not ip_h attr in vk form")
 	}
 
 	lg_h, exists := doc.Find("form input[name=lg_h]").Attr("value")
-	if exists == false {
+	if !exists {
 		return nil, "", errors.New("Not lg_h attr in vk form")
 	}
 
 	to, exists := doc.Find("form input[name=to]").Attr("value")
-	if exists == false {
+	if !exists {
 		return nil, "", errors.New("Not 'to' attr in vk form")
 	}
 
@@ -129,7 +130,7 @@ func parse_form(doc *goquery.Document) (url.Values, string, error) {
 	formData.Add("lg_h", lg_h)
 
 	url, exists := doc.Find("#vk_wrap #m #mcont .pcont .form_item form").Attr("action")
-	if exists == false {
+	if !exists {
 		return nil, "", errors.New("Not action attr in vk form")
 	}
 	return formData, url, nil
@@ -137,7 +138,7 @@ func parse_form(doc *goquery.Document) (url.Values, string, error) {
 
 func parse_perm_form(doc *goquery.Document) (string, error) {
 	url, exists := doc.Find("form").Attr("action")
-	if exists == false {
+	if !exists {
 		return "", errors.New("Not action attr in vk form")
 	}
 	return url, nil
@@ -211,7 +212,24 @@ func (vk *Api) securityCheck(response *http.Response, client *http.Client) (*htt
 	return client.PostForm("https://vk.com/login.php?act=security_check", form)
 }
 
+func (vk *Api) RequestTypedContext(ctx context.Context, method string, params url.Values, result interface{}) error {
+	bts, err := vk.request(ctx, method, params)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(bts, result)
+}
+
+func (vk *Api) RequestContext(ctx context.Context, method string, p ...url.Values) ([]byte, error) {
+	return vk.request(ctx, method, p...)
+}
+
 func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
+	return vk.request(context.Background(), methodName, p...)
+}
+
+func (vk *Api) request(ctx context.Context, methodName string, p ...url.Values) ([]byte, error) {
 	mx.Lock()
 	if vk.LastCall.IsZero() {
 		vk.LastCall = time.Now()
@@ -267,7 +285,7 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 	if vk.debug {
 		log.Println(methodName, pars)
 	}
-	content, err := vk.request(methodName, params)
+	content, err := vk.do(ctx, methodName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +306,7 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 		} else if er.Error.Code == 14 {
 			var code string
 			if vk.CaptchaResolver != nil {
-				code, err = vk.CaptchaResolver.ResolveCaptcha(er.Error.CaptchaSid, er.Error.CapthchaImg)
+				code, err = vk.CaptchaResolver.ResolveCaptcha(ctx, er.Error.CaptchaSid, er.Error.CapthchaImg)
 				if err != nil {
 					return nil, err
 				}
@@ -301,13 +319,10 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 			}
 			params.Set("captcha_sid", er.Error.CaptchaSid)
 			params.Set("captcha_key", code)
-			content, err = vk.request(methodName, params)
+			content, err = vk.do(ctx, methodName, params)
 			if err != nil {
 				return nil, err
 			}
-		}
-		if er.Error.Code == 14 && vk.StdCaptcha {
-
 		}
 	}
 
@@ -315,12 +330,14 @@ func (vk *Api) Request(methodName string, p ...url.Values) ([]byte, error) {
 		key := methodName + "?" + params.Encode()
 		md5 := dry.StringMD5Hex(key)
 		fname := vk.cacheDir + "/" + md5
+
 		return content, ioutil.WriteFile(fname, content, 0777)
 	}
 
 	mx.Lock()
 	vk.LastCall = time.Now()
 	mx.Unlock()
+
 	return content, nil
 }
 
@@ -333,7 +350,7 @@ type ErrResponse struct {
 	} `json:"error"`
 }
 
-func (a *Api) request(methodName string, p url.Values) ([]byte, error) {
+func (a *Api) do(ctx context.Context, methodName string, p url.Values) ([]byte, error) {
 	u, err := url.Parse(APIURL + methodName)
 	if err != nil {
 		mx.Unlock()
@@ -351,11 +368,7 @@ func (a *Api) request(methodName string, p url.Values) ([]byte, error) {
 		log.Println(u.String() + "?" + p.Encode())
 	}
 
-	//if len(p.Encode()) > 1024 {
-	req, err = http.NewRequest("POST", u.String(), strings.NewReader(p.Encode()))
-	//} else {
-	//	req, err = http.NewRequest("POST", u.String()+"?"+p.Encode(), nil)
-	//}
+	req, err = http.NewRequestWithContext(ctx, "POST", u.String(), strings.NewReader(p.Encode()))
 	if err != nil {
 		if a.debug {
 			log.Println(err)
@@ -369,13 +382,13 @@ func (a *Api) request(methodName string, p url.Values) ([]byte, error) {
 
 	resp, err := a.HTTPClient().Do(req)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	defer resp.Body.Close()
 	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	return content, nil

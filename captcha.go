@@ -2,6 +2,8 @@
 
 package vk
 
+import "context"
+
 type CaptchaResolver interface {
-	ResolveCaptcha(ssid string, imageURL string) (string, error)
+	ResolveCaptcha(ctx context.Context, ssid string, imageURL string) (string, error)
 }

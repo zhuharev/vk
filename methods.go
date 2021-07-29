@@ -57,6 +57,9 @@ const (
 	METHOD_PHOTOS_GET_WALL_UPLOAD_SERVER = "photos.getWallUploadServer"
 	METHOD_PHOTOS_SAVE_WALL_PHOTO        = "photos.saveWallPhoto"
 
+	MethodPoolsGetByID   = "polls.getById"
+	MethodPoolsGetVoters = "polls.getVoters"
+
 	METHOD_USERS_GET               = "users.get"
 	METHOD_USERS_GET_FOLLOWERS     = "users.getFollowers"
 	METHOD_USERS_SEARCH            = "users.search"
