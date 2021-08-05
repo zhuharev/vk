@@ -31,7 +31,7 @@ var (
 	DefaultUserAgent = `VKAndroidApp/4.8.3-1113 (Android 4.4.2; SDK 10; armeabi-v7a; ZTE ZTE Blade L3; ru)`
 
 	// VkAPIVersion is lastest vk.com api version supported
-	VkAPIVersion = "5.64"
+	VkAPIVersion = "5.131"
 )
 
 var (
